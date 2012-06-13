@@ -1,0 +1,4 @@
+TODO: Resource manager is a global variable.
+TODO: Resource manager shouldn't have hard coded paths.
+
+TODO: Work out the gnarly bits in the central vqa playback loop. Ugh... so gnarly.
