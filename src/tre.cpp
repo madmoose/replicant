@@ -12,7 +12,7 @@ bool tre_t::open(const char *tre_name)
 	if (strlen(tre_name) > 8)
 		return false;
 
-	strcat(resource_name, tre_name);
+	strcpy(resource_name, tre_name);
 	strcat(resource_name, ".TRE");
 
 	reader_t *r = resource_manager.get_resource_by_name(resource_name);
