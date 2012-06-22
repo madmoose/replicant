@@ -1,7 +1,7 @@
 #ifndef RC01_H
 #define RC01_H
 
-#include "script.h"
+#include "../script.h"
 
 struct script_rc01_t : script_t
 {
