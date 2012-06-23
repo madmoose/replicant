@@ -8,14 +8,19 @@
 
 bool tre_t::open(const char *tre_name)
 {
-	char resource_name[13];
-	if (strlen(tre_name) > 8)
+	char name[13];
+
+	if (valid_resource_name(tre_name))
+		sprintf(name, "%s", tre_name);
+	else if (valid_resource_basename(tre_name))
+		sprintf(name, "%s.TRE", tre_name);
+	else
+	{
+		printf("'%s' is not a valid resource name\n", tre_name);
 		return false;
+	}
 
-	strcpy(resource_name, tre_name);
-	strcat(resource_name, ".TRE");
-
-	reader_t *r = resource_manager.get_resource_by_name(resource_name);
+	reader_t *r = resource_manager.get_resource_by_name(name);
 	if (!r)
 		return false;
 

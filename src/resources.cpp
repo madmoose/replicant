@@ -1,11 +1,75 @@
 #include "resources.h"
 
-#include <cassert>
-#include <cstdio>
-#include <cctype>
 #include <algorithm>
+#include <cassert>
+#include <cctype>
+#include <cstdio>
+#include <cstring>
 
 #include "utils.h"
+
+static bool valid_name_char(char c)
+{
+	return ('0' <= c && c <= '9')
+	    || ('a' <= c && c <= 'z')
+	    || ('A' <= c && c <= 'Z')
+	    || c == '_' || c == '-';
+}
+
+bool valid_resource_name(const char *name)
+{
+	if (strlen(name) > 12)
+		return false;
+
+	const char *p;
+	int basename_length = 0;
+	for (p = name; *p && *p != '.'; ++p)
+	{
+		if (!valid_name_char(*p))
+			return false;
+		++basename_length;
+	}
+
+	if (*p != '.' || basename_length > 8)
+		return false;
+
+	int extension_length = 0;
+	for (++p; *p && *p != '.'; ++p)
+	{
+		if (!valid_name_char(*p))
+			return false;
+		++extension_length;
+	}
+
+	if (*p || extension_length > 3)
+		return false;
+
+	return true;
+}
+
+bool valid_resource_basename(const char *name)
+{
+	if (strlen(name) > 8)
+		return false;
+
+	for (const char *p = name; *p; ++p)
+		if (!valid_name_char(*p))
+			return false;
+
+	return true;
+}
+
+const char *get_resource_extension(const char *name)
+{
+	if (!valid_resource_name(name))
+		return 0;
+
+	const char *dot = strchr(name, '.');
+	if (!dot)
+		return 0;
+
+	return dot + 1;
+}
 
 /*
  * Ugh, global variable...
@@ -71,9 +135,28 @@ reader_t *resource_file_t::reader_for_id(uint32_t id, const char *name)
 	return make_sub_reader(r, name, data_offset + entries[i].offset, entries[i].length);
 }
 
+#include "Shlwapi.h"
+
+void resource_manager_t::set_base_path(const char *path)
+{
+	base_path = strdup(path);
+
+	if (!PathIsDirectoryA(base_path))
+	{
+		printf("'%s' is not a valid base path\n", base_path);
+		exit(1);
+	}
+}
+
 bool resource_manager_t::open_resource_file(const char *name)
 {
-	reader_t *r = make_file_reader(name);
+	char full_name[MAX_PATH];
+
+	strcpy(full_name, base_path);
+
+	PathAppendA(full_name, name);
+
+	reader_t *r = make_file_reader(full_name);
 
 	resource_file_type_e type;
 
@@ -126,6 +209,12 @@ uint32_t mix_id_for_name(const char *aResourceName)
 
 reader_t *resource_manager_t::get_resource_by_name(const char *name)
 {
+	if (!valid_resource_name(name))
+	{
+		printf("'%s' is not a valid resource name\n", name);
+		return 0;
+	}
+
 	size_t i = 0;
 	reader_t *r = 0;
 	uint32_t id = mix_id_for_name(name);
@@ -153,6 +242,11 @@ reader_t *resource_manager_t::get_resource_by_name(const char *name)
 
 reader_t *resource_manager_t::get_speech_resource(int actor_id, int sentence_id)
 {
+	if (actor_id < 0 || actor_id > 99)
+		return 0;
+	if (sentence_id < 0 || sentence_id > 9999)
+		return 0;
+
 	reader_t *r = 0;
 	uint32_t id = actor_id * 10000 + sentence_id;
 

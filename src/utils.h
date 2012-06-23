@@ -18,6 +18,11 @@ float hexfloat(unsigned int a);
 void draw_point(uint16_t *frame, int x, int y, uint16_t color);
 void draw_line(uint16_t *frame, int x0, int y0, int x1, int y1, uint16_t color);
 
+char *strupcase(char *s);
 bool strendswith(const char *s1, const char *s2);
+
+#ifdef __WIN32__
+char *strdup(const char *s);
+#endif
 
 #endif

@@ -6,6 +6,10 @@
 #include <cstdint>
 #include <vector>
 
+bool valid_resource_name(const char *name);
+bool valid_resource_basename(const char *name);
+const char *get_resource_extension(const char *name);
+
 enum resource_file_type_e
 {
 	RT_MIX,
@@ -49,9 +53,11 @@ public:
 class resource_manager_t
 {
 private:
+	char *base_path;
 	std::vector<resource_file_t*> resource_files;
 
 public:
+	void set_base_path(const char *path);
 	bool open_resource_file(const char *name);
 	reader_t *get_resource_by_name(const char *name);
 	reader_t *get_speech_resource(int actor_id, int sentence_id);

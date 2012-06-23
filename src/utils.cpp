@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 
 #include "lodepng.h"
 
@@ -161,6 +162,13 @@ char upcase(char c)
 	return c;
 }
 
+char *strupcase(char *s)
+{
+	for (char *p = s; *p; ++p)
+		*p = upcase(*p);
+	return s;
+}
+
 int strcasecmp(const char *s1, const char *s2)
 {
 	while (*s1 && *s2)
@@ -184,3 +192,12 @@ bool strendswith(const char *s1, const char *s2)
 
 	return strcasecmp(s1 + len1 - len2, s2) == 0;
 }
+
+#ifdef __WIN32__
+char *strdup(const char *s)
+{
+	char *r = (char*)malloc(strlen(s)+1);
+	strcpy(r, s);
+	return r;
+}
+#endif
