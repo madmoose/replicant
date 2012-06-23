@@ -45,6 +45,8 @@ class aud_decoder_t
 	int16_t frame[1470];
 public:
 	aud_decoder_t(reader_t *r);
+	uint32_t get_size_in_samples();
+	uint32_t get_length_in_ms();
 	int16_t *get_frame();
 };
 

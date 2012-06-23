@@ -1,6 +1,7 @@
 #include "aud_decoder.h"
 
 #include <algorithm>
+#include <cassert>
 
 #include "reader.h"
 #include "utils.h"
@@ -154,70 +155,96 @@ aud_decoder_t::aud_decoder_t(reader_t *r)
 	r->read_byte(&header.type);
 }
 
+uint32_t aud_decoder_t::get_length_in_ms()
+{
+	uint64_t ms = (uint64_t)header.out_size * 1000 / header.sample_rate / 2;
+	assert(ms <= UINT32_MAX);
+	return ms;
+}
+
+uint32_t aud_decoder_t::get_size_in_samples()
+{
+	return header.out_size / 2;
+}
+
 int16_t *aud_decoder_t::get_frame()
 {
-	while (r->remain() > 0 && buffer.size() < 1470)
+	if (header.type == 0)
 	{
-		uint16_t block_size;
-		uint16_t block_out_size;
-		uint32_t sig;
-
-		r->read_le16(&block_size);
-		r->read_le16(&block_out_size);
-		r->read_le32(&sig);
-		if (sig != 0xdeaf)
-		{
-			puts("Error reading AUD - Expected 0xDEAF");
+		size_t amount = std::min(r->remain() / 2, 1470u);
+		if (amount == 0)
 			return 0;
-		}
-		block_out_size /= 2;
 
-		if (2 * block_size > block_out_size)
-		{
-			printf("Error reading AUD - 2 * %d > %d\n", block_size, block_out_size);
-			return 0;
-		}
+		r->read_bytes(frame, 2 * amount);
 
-		uint8_t block_buffer_in[block_size];
-		int16_t block_buffer_out[block_out_size];
-
-		// block_out_size is sometimes slightly larger than 2 * block_size
-		// so clear out the end that won't be overwritten by the decoder
-
-		for (size_t i = 2 * block_size; i != block_out_size; ++i)
-			block_buffer_out[i] = 0;
-
-		r->read_bytes(block_buffer_in, block_size);
-		ima_adpcm_ws_decoder.decode(block_buffer_in, block_size, block_buffer_out);
-
-		bool speedy = false;
-		if (speedy)
-		{
-			size_t i = 0, j = 0;
-			for (; i != block_out_size; ++i)
-			{
-				block_buffer_out[j] = block_buffer_out[i];
-				if (i % 3 != 0)
-					++j;
-			}
-			block_out_size = j;
-		}
-
-		buffer.insert(buffer.end(), block_buffer_out, block_buffer_out + block_out_size);
+		for (size_t i = amount; i != 1470u; ++i)
+			frame[i] = 0;
 	}
+	else if (header.type == 99)
+	{
+		while (r->remain() > 0 && buffer.size() < 1470)
+		{
+			uint16_t block_size;
+			uint16_t block_out_size;
+			uint32_t sig;
 
-	if (buffer.empty())
-		return 0;
+			r->read_le16(&block_size);
+			r->read_le16(&block_out_size);
+			r->read_le32(&sig);
+			if (sig != 0xdeaf)
+			{
+				puts("Error reading AUD - Expected 0xDEAF");
+				return 0;
+			}
+			block_out_size /= 2;
 
-	size_t amount = std::min((int)buffer.size(), 1470);
+			if (2 * block_size > block_out_size)
+			{
+				printf("Error reading AUD - 2 * %d > %d\n", block_size, block_out_size);
+				return 0;
+			}
 
-	for (size_t i = 0; i != amount; ++i)
-		frame[i] = buffer[i];
+			uint8_t block_buffer_in[block_size];
+			int16_t block_buffer_out[block_out_size];
 
-	for (size_t i = amount; i != 1470; ++i)
-		frame[i] = 0;
+			// block_out_size is sometimes slightly larger than 2 * block_size
+			// so clear out the end that won't be overwritten by the decoder
 
-	buffer.erase(buffer.begin(), buffer.begin() + amount);
+			for (size_t i = 2 * block_size; i != block_out_size; ++i)
+				block_buffer_out[i] = 0;
+
+			r->read_bytes(block_buffer_in, block_size);
+			ima_adpcm_ws_decoder.decode(block_buffer_in, block_size, block_buffer_out);
+
+			bool speedy = false;
+			if (speedy)
+			{
+				size_t i = 0, j = 0;
+				for (; i != block_out_size; ++i)
+				{
+					block_buffer_out[j] = block_buffer_out[i];
+					if (i % 3 != 0)
+						++j;
+				}
+				block_out_size = j;
+			}
+
+			buffer.insert(buffer.end(), block_buffer_out, block_buffer_out + block_out_size);
+		}
+
+		if (buffer.empty())
+			return 0;
+
+		size_t amount = std::min((int)buffer.size(), 1470);
+
+		for (size_t i = 0; i != amount; ++i)
+			frame[i] = buffer[i];
+
+		for (size_t i = amount; i != 1470; ++i)
+			frame[i] = 0;
+
+		buffer.erase(buffer.begin(), buffer.begin() + amount);
+	}
 
 	return frame;
 }
