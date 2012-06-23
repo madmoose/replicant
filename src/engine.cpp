@@ -70,7 +70,7 @@ void engine_t::process_game()
 		platform->output_audio_frame();
 
 		if (!next_frame_time)
-			next_frame_time = 60 * get_time();
+			next_frame_time = cur_time;
 		next_frame_time += (60 * 1000) / 15;
 	}
 }
@@ -174,7 +174,7 @@ void engine_t::read_gameinfo()
 	{
 		r->read_bytes(sfx_tracks[i], 9);
 		strcat(sfx_tracks[i], ".AUD");
-		//printf("%s\n", sfx_tracks[i]);
+		//printf("%3d: %s\n", i, sfx_tracks[i]);
 	}
 
 	music_tracks = new char[music_track_count][13];
