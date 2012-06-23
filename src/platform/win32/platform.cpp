@@ -24,6 +24,20 @@ bool platform_t::init(engine_t *a_engine)
 	return true;
 }
 
+bool platform_t::init_audio_only(engine_t *a_engine)
+{
+	engine = a_engine;
+
+	window = 0;
+	opengl_renderer = 0;
+
+	audio_renderer = new audio_renderer_t;
+	if (!audio_renderer->init())
+		return false;
+
+	return true;
+}
+
 void platform_t::shutdown()
 {
 	delete opengl_renderer;

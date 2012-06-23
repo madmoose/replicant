@@ -19,6 +19,8 @@ class platform_t
 
 public:
 	bool init(engine_t *a_engine);
+	bool init_audio_only(engine_t *a_engine);
+
 	void shutdown();
 
 	bool render_frame(uint16_t *frame);
