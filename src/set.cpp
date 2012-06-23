@@ -242,4 +242,3 @@ object_t &set_t::get_object(size_t i)
 	assert(i < object_count);
 	return objects[i];
 }
-
