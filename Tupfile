@@ -1,0 +1,2 @@
+include_rules
+: src\*.o src\platform\win32\*.o |> $(CXX) $(INCLUDES) %f $(LIBS) -o %o |> $(EXECUTABLE)

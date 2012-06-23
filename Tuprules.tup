@@ -1,0 +1,13 @@
+CXX = g++
+
+CXXFLAGS += -std=c++0x
+CXXFLAGS += -O2
+CXXFLAGS += -Wall
+
+INCLUDES += -I$(TUP_CWD)/src
+
+LIBS=-lopengl32 -lglu32 -luser32 -lgdi32 -lwinmm -lShlwapi
+
+EXECUTABLE = replicant.exe
+
+!cxx = |> $(CXX) $(CXXFLAGS) $(INCLUDES) -c %f -o %o |> %B.o
