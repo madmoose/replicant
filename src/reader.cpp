@@ -40,6 +40,7 @@ public:
 	{
 		assert(size <= remain());
 		memcpy(ptr, position, size);
+		position += size;
 	}
 };
 
