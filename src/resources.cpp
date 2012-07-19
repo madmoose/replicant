@@ -135,17 +135,21 @@ reader_t *resource_file_t::reader_for_id(uint32_t id, const char *name)
 	return make_sub_reader(r, name, data_offset + entries[i].offset, entries[i].length);
 }
 
+#ifdef _WIN32
 #include "Shlwapi.h"
+#endif
 
 void resource_manager_t::set_base_path(const char *path)
 {
 	base_path = strdup(path);
 
+#ifdef _WIN32
 	if (!PathIsDirectoryA(base_path))
 	{
 		printf("'%s' is not a valid base path\n", base_path);
 		exit(1);
 	}
+#endif
 }
 
 bool resource_manager_t::open_resource_file(const char *name)
@@ -154,7 +158,9 @@ bool resource_manager_t::open_resource_file(const char *name)
 
 	strcpy(full_name, base_path);
 
+#ifdef _WIN32
 	PathAppendA(full_name, name);
+#endif
 
 	reader_t *r = make_file_reader(full_name);
 
