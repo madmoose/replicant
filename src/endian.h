@@ -3,7 +3,9 @@
 
 #include <cstdint>
 
+#ifndef BIG_ENDIAN
 #define BIG_ENDIAN 0
+#endif
 
 inline
 uint16_t swap16(uint16_t a)
