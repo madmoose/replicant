@@ -7,6 +7,7 @@
 
 class reader_t {
 public:
+	virtual ~reader_t() {};
 	virtual const char *get_name() = 0;
 
 	virtual bool     is_open()              = 0;

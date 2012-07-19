@@ -1,20 +1,13 @@
 #include "reader.h"
 
+#include "utils.h"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
-static
-char *strdup(const char *s)
-{
-	size_t len = strlen(s) + 1;
-	char *s2 = (char*)malloc(len);
-	memcpy(s2, s, len);
-	return s2;
-}
 
 class memory_reader_t : reader_t {
 private:
