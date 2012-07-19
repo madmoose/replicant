@@ -5,6 +5,20 @@
 #include "audio_renderer.h"
 #include "msg_loop.h"
 
+platform_t::platform_t()
+	: engine(0),
+	  window(0),
+	  opengl_renderer(0),
+	  audio_renderer(0)
+{}
+
+platform_t::~platform_t()
+{
+	delete audio_renderer;
+	delete opengl_renderer;
+	delete window;
+}
+
 bool platform_t::init(engine_t *a_engine)
 {
 	engine = a_engine;
@@ -18,7 +32,7 @@ bool platform_t::init(engine_t *a_engine)
 		return false;
 
 	audio_renderer = new audio_renderer_t;
-	if (!audio_renderer->init())
+	if (!audio_renderer->init(this))
 		return false;
 
 	return true;
@@ -32,7 +46,7 @@ bool platform_t::init_audio_only(engine_t *a_engine)
 	opengl_renderer = 0;
 
 	audio_renderer = new audio_renderer_t;
-	if (!audio_renderer->init())
+	if (!audio_renderer->init(this))
 		return false;
 
 	return true;
@@ -55,6 +69,12 @@ bool platform_t::render_frame(uint16_t *frame)
 	return true;
 }
 
+void platform_t::set_audio_callback(audio_callback_fn_t *callback, void *ctx)
+{
+	if (audio_renderer)
+		audio_renderer->set_audio_callback(callback, ctx);
+}
+
 void platform_t::start_audio()
 {
 	audio_renderer->start();
@@ -63,16 +83,6 @@ void platform_t::start_audio()
 void platform_t::stop_audio()
 {
 	audio_renderer->stop();
-}
-
-void platform_t::mix_in_audio_frame(int16_t frame[AUDIO_FRAME_SIZE], int volume)
-{
-	audio_renderer->mix_in_audio_frame(frame, volume);
-}
-
-bool platform_t::output_audio_frame()
-{
-	return audio_renderer->output_audio_frame();
 }
 
 uint32_t platform_t::get_time()

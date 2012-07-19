@@ -152,6 +152,31 @@ void draw_line(uint16_t *frame, int x0, int y0, int x1, int y1, uint16_t color)
 	}
 }
 
+uint32_t rand_in_range(uint32_t min, uint32_t max)
+{
+	if (min == max)
+		return min;
+
+	if (min > max)
+		std::swap(min, max);
+
+	uint32_t d = max - min;
+
+	uint32_t mask = d;
+	mask = (mask >>  1) | mask;
+	mask = (mask >>  2) | mask;
+	mask = (mask >>  4) | mask;
+	mask = (mask >>  8) | mask;
+	mask = (mask >> 16) | mask;
+
+	uint32_t r;
+	do {
+		r = mask & rand();
+	} while (r > d);
+
+	return min + r;
+}
+
 #include <string.h>
 
 char upcase(char c)

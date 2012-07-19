@@ -1,5 +1,6 @@
 #include "script.h"
 
+#include "ambient_sounds.h"
 #include "engine.h"
 #include "scripts\rc01.h"
 
@@ -38,6 +39,21 @@ void script_t::outtake_play(int id, int a2, int a3)
 void script_t::actor_voice_over(int sentence_id, int actor_id)
 {
 	engine->actor_voice_over(sentence_id, actor_id);
+}
+
+void script_t::sound_play(int id, int volume, int a3, int a4, int a5)
+{
+	engine->sound_play(id, volume, a3, a4, a5);
+}
+
+void script_t::ambient_sounds_add_sound(int id, int time1, int time2, int a4, int a5, int a6, int a7, int a8, int a9, int a10, int a11)
+{
+	engine->get_ambient_sounds()->add_sound(id, time1, time2, a4, a5, a6, a7, a8, a9, a10, a11);
+}
+
+void script_t::ambient_sounds_add_looping_sound(int id, int volume, int a3, int a4)
+{
+	engine->get_ambient_sounds()->add_looping_sound(id, volume, a3, a4);
 }
 
 #define SCRIPT(script_name, type) \

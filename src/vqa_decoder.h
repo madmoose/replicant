@@ -107,7 +107,7 @@ public:
 	~vqa_decoder_t();
 
 	bool read_header();
-	bool read_frame();
+	int  read_frame();
 
 	void vptr_write_block(uint16_t *frame, unsigned int dst_block, unsigned int src_block, int count, bool alpha = false) const;
 

@@ -69,17 +69,18 @@ void scene_t::set_loop_default(int loop)
 	vqa_decoder->set_loop_default(loop);
 }
 
-bool scene_t::advance_frame(uint16_t *frame)
+int scene_t::advance_frame(uint16_t *frame)
 {
-	if (!vqa_decoder->read_frame())
-		return false;
+	int frame_no = vqa_decoder->read_frame();
+	if (frame_no < 0)
+		return -1;
 
-	int16_t *audio_frame = vqa_decoder->get_audio_frame();
-	if (audio_frame)
-		engine->get_platform()->mix_in_audio_frame(audio_frame, 100);
+	// int16_t *audio_frame = vqa_decoder->get_audio_frame();
+	// if (audio_frame)
+	// 	engine->get_platform()->mix_in_audio_frame(audio_frame, 100);
 
 	if (!vqa_decoder->decode_frame(scene_frame))
-		return false;
+		return -1;
 
 	memcpy(frame, scene_frame, 2*640*480);
 
@@ -89,5 +90,5 @@ bool scene_t::advance_frame(uint16_t *frame)
 		set->draw(frame, &view);
 #endif
 
-	return true;
+	return frame_no;
 }

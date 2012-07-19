@@ -29,7 +29,7 @@ public:
 	void set_loop_special(int loop, bool wait);
 	void set_loop_default(int loop);
 
-	bool advance_frame(uint16_t *frame);
+	int  advance_frame(uint16_t *frame);
 };
 
 #endif

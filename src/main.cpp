@@ -12,7 +12,8 @@
 void open_resource_files()
 {
 	/* hackety hack hack */
-	resource_manager.set_base_path("C:\\WESTWOOD\\BLADE\\");
+	// resource_manager.set_base_path("C:\\WESTWOOD\\BLADE\\");
+	resource_manager.set_base_path("f:\\misc\\Blade Runner\\BASE");
 
 	resource_manager.open_resource_file("1.TLK");
 	resource_manager.open_resource_file("2.TLK");
@@ -27,7 +28,7 @@ void open_resource_files()
 	resource_manager.open_resource_file("SFX.MIX");
 	resource_manager.open_resource_file("SPCHSFX.TLK");
 	resource_manager.open_resource_file("STARTUP.MIX");
-	resource_manager.open_resource_file("VQA1.MIX");
+	resource_manager.open_resource_file("..\\CD1\\VQA1.MIX");
 	resource_manager.open_resource_file("VQA2.MIX");
 	resource_manager.open_resource_file("VQA3.MIX");
 }
@@ -78,25 +79,24 @@ int play_aud(const char *aud_name)
 		return 1;
 	}
 
-	reader_t *r = resource_manager.get_resource_by_name(name);
-	if (!r) return 1;
-
-	aud_decoder_t *aud_decoder = new aud_decoder_t(r);
-
-	r->seek_set(0);
-	aud_player_t *aud_player = new aud_player_t(platform);
-	if (!aud_player) return 1;
-
-	aud_player->play_aud(r);
-	uint32_t start_time = platform->get_time();
-	while (!aud_player->is_done())
+	uint32_t length_in_ms;
 	{
-		aud_player->output_frame();
-		platform->output_audio_frame();
+		reader_t *r = resource_manager.get_resource_by_name(name);
+		if (!r) return 1;
+
+		aud_decoder_t aud_decoder(r);
+		length_in_ms = aud_decoder.get_length_in_ms() + 100;
+		printf("Length: %.3fs\n", length_in_ms / 1000.0);
+
+		delete r;
 	}
 
-	uint32_t length_in_ms = aud_decoder->get_length_in_ms() + 100;
-	printf("Length: %.3fs\n", length_in_ms / 1000.0);
+	aud_player_t aud_player(platform);
+	aud_player.play_aud(name);
+
+	platform->start_audio();
+	uint32_t start_time = platform->get_time();
+
 	while (start_time + length_in_ms > platform->get_time())
 		platform->handle_input();
 
@@ -187,18 +187,12 @@ int save_wav(const char *aud_name)
 	wave.riff_size = htole32(36 + wave.data_size);
 
 	std::vector<int16_t> buffer;
-
-	uint32_t remain = aud_decoder.get_size_in_samples();
-
-	while (remain > 0)
+	int16_t audio_frame[1470];
+	while (aud_decoder.decode(audio_frame, 1470) > 0)
 	{
-		int16_t *frame = aud_decoder.get_frame();
-
 		for (size_t i = 0; i != 1470; ++i)
-			frame[i] = htole16(frame[i]);
-		buffer.insert(buffer.end(), frame, frame + 1470);
-
-		remain -= std::min(remain, 1470u);
+			audio_frame[i] = htole16(audio_frame[i]);
+		buffer.insert(buffer.end(), audio_frame, audio_frame + 1470);
 	}
 
 	*strchr(name, '.') = 0;

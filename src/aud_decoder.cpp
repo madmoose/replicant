@@ -167,23 +167,31 @@ uint32_t aud_decoder_t::get_size_in_samples()
 	return header.out_size / 2;
 }
 
-int16_t *aud_decoder_t::get_frame()
+size_t aud_decoder_t::decode(int16_t *output, size_t output_size, bool loop)
 {
+	size_t amount = 0;
+
 	if (header.type == 0)
 	{
-		size_t amount = std::min(r->remain() / 2, 1470u);
+		amount = std::min(r->remain() / 2, output_size);
 		if (amount == 0)
 			return 0;
 
-		r->read_bytes(frame, 2 * amount);
-
-		for (size_t i = amount; i != 1470u; ++i)
-			frame[i] = 0;
+		r->read_bytes(output, 2 * amount);
 	}
 	else if (header.type == 99)
 	{
-		while (r->remain() > 0 && buffer.size() < 1470)
+		while (buffer.size() < output_size)
 		{
+			if (r->remain() == 0)
+			{
+				if (!loop)
+					break;
+
+				r->seek_set(12);
+				ima_adpcm_ws_decoder.set_parameters(0, 0);
+			}
+
 			uint16_t block_size;
 			uint16_t block_out_size;
 			uint32_t sig;
@@ -235,16 +243,13 @@ int16_t *aud_decoder_t::get_frame()
 		if (buffer.empty())
 			return 0;
 
-		size_t amount = std::min((int)buffer.size(), 1470);
+		amount = std::min((int)buffer.size(), 1470);
 
 		for (size_t i = 0; i != amount; ++i)
-			frame[i] = buffer[i];
-
-		for (size_t i = amount; i != 1470; ++i)
-			frame[i] = 0;
+			output[i] = buffer[i];
 
 		buffer.erase(buffer.begin(), buffer.begin() + amount);
 	}
 
-	return frame;
+	return amount;
 }

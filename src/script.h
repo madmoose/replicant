@@ -12,11 +12,18 @@ struct script_t
 	{}
 
 	virtual void initialize_scene() = 0;
+	virtual void scene_frame_advanced(int frame) = 0;
 
 	void set_loop_special(int loop, bool wait);
 	void set_loop_default(int loop);
+
+	void sound_play(int id, int volume, int a3, int a4, int a5);
+
 	void actor_voice_over(int sentence_id, int actor_id);
 	void outtake_play(int id, int a2, int a3);
+
+	void ambient_sounds_add_sound(int id, int time1, int time2, int a4, int a5, int a6, int a7, int a8, int a9, int a10, int a11);
+	void ambient_sounds_add_looping_sound(int id, int volume, int a3, int a4);
 };
 
 script_t *get_script_by_name(engine_t *engine, const char *name);

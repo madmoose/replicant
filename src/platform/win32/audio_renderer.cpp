@@ -1,12 +1,64 @@
 #include "audio_renderer.h"
 
+#include <cassert>
 #include <cstdio>
 
-bool audio_renderer_t::init()
+#include "platform.h"
+#include "window.h"
+
+audio_renderer_t::audio_renderer_t()
+	: hThread(0),
+	  hSemaphore(0),
+	  hStopEvent(0),
+	  hWaveOut(0),
+	  nextWaveHdr(0),
+	  is_started(false),
+	  audio_callback_fn(0)
 {
-	mix_buffer_empty = true;
-	is_started = false;
-	memset(mix_buffer, 0, 4 * AUDIO_FRAME_SIZE);
+	for (int i = 0; i != 2; ++i)
+		waveHdr[i].lpData = 0;
+}
+
+audio_renderer_t::~audio_renderer_t()
+{
+	stop();
+	CloseHandle(hSemaphore);
+	CloseHandle(hStopEvent);
+
+	waveOutReset(hWaveOut);
+	waveOutClose(hWaveOut);
+
+	for (int i = 0; i != 2; ++i)
+		free(waveHdr[i].lpData);
+}
+
+DWORD WINAPI audio_thread_runner(LPVOID lpParam)
+{
+	audio_renderer_t *audio_renderer = (audio_renderer_t*)lpParam;
+	audio_renderer->audio_thread_runner();
+
+	return 0;
+}
+
+void CALLBACK waveOutProc(HWAVEOUT hwo, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
+{
+	if (uMsg != WOM_DONE)
+		return;
+
+	audio_renderer_t *audio_renderer = (audio_renderer_t*)dwInstance;
+
+	ReleaseSemaphore(audio_renderer->hSemaphore, 1, 0);
+}
+
+bool audio_renderer_t::init(platform_t *a_platform)
+{
+	platform = a_platform;
+
+	hSemaphore = CreateSemaphore(NULL, 2, 2, NULL);
+	hStopEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+
+	assert(hSemaphore != NULL);
+	assert(hStopEvent != NULL);
 
 	WAVEFORMATEX waveFormat;
 	memset(&waveFormat, 0, sizeof(WAVEFORMATEX));
@@ -23,91 +75,78 @@ bool audio_renderer_t::init()
 	MMRESULT r = waveOutOpen(&hWaveOut,
 	                         WAVE_MAPPER,
 	                         &waveFormat,
-	                         0,
-	                         0,
-	                         CALLBACK_NULL);
+	                         (DWORD)waveOutProc,
+	                         (DWORD)this,
+	                         CALLBACK_FUNCTION);
 
-    if (r != MMSYSERR_NOERROR)
-    	return false;
+	assert(r == MMSYSERR_NOERROR);
 
-    waveOutPause(hWaveOut);
+	for (int i = 0; i != 2; ++i)
+	{
+		memset(&waveHdr[i], 0, sizeof(WAVEHDR));
 
-    return true;
+		waveHdr[i].dwBufferLength = 4 * AUDIO_FRAME_SIZE;
+		waveHdr[i].lpData = (LPSTR)malloc(waveHdr[i].dwBufferLength);
+
+		assert(waveHdr[i].lpData);
+	}
+
+	return true;
 }
 
 void audio_renderer_t::start()
 {
-	if (!is_started)
-		waveOutRestart(hWaveOut);
+	if (is_started)
+		return;
 	is_started = true;
+
+	hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)::audio_thread_runner, this, 0, 0);
+	SetThreadPriority(hThread, THREAD_PRIORITY_HIGHEST);
 }
 
 void audio_renderer_t::stop()
 {
-	if (is_started)
-	{
-		waveOutReset(hWaveOut);
-		//waveOutPause(hWaveOut);
-	}
+	if (!is_started)
+		return;
 	is_started = false;
+
+	SetEvent(hStopEvent);
+	WaitForSingleObject(hThread, INFINITE);
+	CloseHandle(hThread);
+	hThread = 0;
 }
 
-void audio_renderer_t::mix_in_audio_frame(int16_t frame[AUDIO_FRAME_SIZE], int volume)
-{
-	mix_buffer_empty = false;
-
-	/*
-	if (pan > 100) pan = 100;
-	if (pan < 0)   pan = 0;
-
-	int pan_factor_l = pan;
-	int pan_factor_r = 100 - pan;
-	*/
-
-	for (int i = 0; i != AUDIO_FRAME_SIZE; ++i)
-	{
-		mix_buffer[2 * i + 0] += frame[i] * 100 / volume / 2;
-		mix_buffer[2 * i + 1] += frame[i] * 100 / volume / 2;
-	}
-}
-
-bool audio_renderer_t::output_audio_frame()
+void audio_renderer_t::audio_thread_runner()
 {
 	MMRESULT r;
-	WAVEHDR *waveHdr;
+	HANDLE handles[2] = { hStopEvent, hSemaphore };
 
-	if (!waveHdrDeque.empty() && (r = waveOutUnprepareHeader(hWaveOut, *waveHdrDeque.begin(), sizeof(WAVEHDR))) == MMSYSERR_NOERROR)
+	for (;;)
 	{
-		waveHdr = *waveHdrDeque.begin();
-		waveHdrDeque.pop_front();
+		DWORD res = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+		if (res == WAIT_OBJECT_0) // hStopEvent
+			return;
+
+		r = waveOutUnprepareHeader(hWaveOut, &waveHdr[nextWaveHdr], sizeof(WAVEHDR));
+		assert(r == MMSYSERR_NOERROR);
+
+		memset(waveHdr[nextWaveHdr].lpData, 0, 4 * AUDIO_FRAME_SIZE);
+
+		if (audio_callback_fn)
+			audio_callback_fn(audio_callback_ctx, (int16_t*)waveHdr[nextWaveHdr].lpData, AUDIO_FRAME_SIZE);
+
+		waveHdr[nextWaveHdr].dwFlags = 0;
+		r = waveOutPrepareHeader(hWaveOut, &waveHdr[nextWaveHdr], sizeof(WAVEHDR));
+		assert(r == MMSYSERR_NOERROR);
+
+		r = waveOutWrite(hWaveOut, &waveHdr[nextWaveHdr], sizeof(WAVEHDR));
+		assert(r == MMSYSERR_NOERROR);
+		nextWaveHdr = (nextWaveHdr + 1) % 2;
 	}
-	else
-	{
-		waveHdr = new WAVEHDR;
-		memset(waveHdr, 0, sizeof(WAVEHDR));
+}
 
-		int16_t *local_frame = new int16_t[2 * AUDIO_FRAME_SIZE];
-		waveHdr->lpData = (LPSTR)local_frame;
-	}
-
-	memcpy((void*)waveHdr->lpData, mix_buffer, 4 * AUDIO_FRAME_SIZE);
-	waveHdr->dwBufferLength = 4 * AUDIO_FRAME_SIZE;
-
-	r = waveOutPrepareHeader(hWaveOut, waveHdr, sizeof(WAVEHDR));
-	if (r != MMSYSERR_NOERROR)
-		return false;
-
-	r = waveOutWrite(hWaveOut, waveHdr, sizeof(WAVEHDR));
-	if (r != MMSYSERR_NOERROR)
-		return false;
-
-	waveHdrDeque.push_back(waveHdr);
-
-	if (!mix_buffer_empty)
-		memset(mix_buffer, 0, 4 * AUDIO_FRAME_SIZE);
-	mix_buffer_empty = true;
-
-	start();
-
-	return true;
+void audio_renderer_t::set_audio_callback(audio_callback_fn_t *callback, void *ctx)
+{
+	audio_callback_fn  = callback;
+	audio_callback_ctx = ctx;
 }

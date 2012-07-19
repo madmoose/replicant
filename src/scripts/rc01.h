@@ -10,6 +10,7 @@ struct script_rc01_t : script_t
 	{}
 
 	void initialize_scene();
+	void scene_frame_advanced(int frame);
 };
 
 #endif

@@ -284,7 +284,7 @@ bool vqa_decoder_t::read_mfci(uint32_t size)
 	return true;
 }
 
-bool vqa_decoder_t::read_frame()
+int vqa_decoder_t::read_frame()
 {
 	if (loop_special >= 0)
 	{
@@ -303,7 +303,7 @@ bool vqa_decoder_t::read_frame()
 	else if (cur_loop >= -1 && cur_frame == loop_info.loops[cur_loop].end - 1)
 	{
 		if (loop_default == -1)
-			return false;
+			return -1;
 
 		cur_loop = loop_default;
 		cur_frame = loop_info.loops[cur_loop].begin;
@@ -313,7 +313,7 @@ bool vqa_decoder_t::read_frame()
 		++cur_frame;
 
 	if (cur_frame >= header.numFrames)
-		return false;
+		return -1;
 
 
 	iff_chunk_header_s chd;
@@ -324,11 +324,11 @@ bool vqa_decoder_t::read_frame()
 	has_view = false;
 
 	if (r->remain() < 8)
-		return false;
+		return -1;
 
 	do {
 		if (!read_iff_chunk_header(r, &chd))
-			return false;
+			return -1;
 
 		//printf("%s ", str_tag(chd.id)); fflush(0);
 
@@ -350,11 +350,11 @@ bool vqa_decoder_t::read_frame()
 		if (!rc)
 		{
 			printf("Error handling chunk %s\n", str_tag(chd.id));
-			return false;
+			return -1;
 		}
 	} while (chd.id != kVQFR);
 
-	return true;
+	return cur_frame;
 }
 
 

@@ -1,5 +1,6 @@
 #include "engine.h"
 
+#include "ambient_sounds.h"
 #include "aud_player.h"
 #include "gameinfo.h"
 #include "platform.h"
@@ -24,8 +25,12 @@ bool engine_t::init(platform_t *a_platform)
 	if (!_gameinfo)
 		return false;
 
-	aud_speech_player = new aud_player_t(platform);
-	if (!aud_speech_player)
+	_aud_player = new aud_player_t(platform);
+	if (!_aud_player)
+		return false;
+
+	_ambient_sounds = new ambient_sounds_t(this);
+	if (!_ambient_sounds)
 		return false;
 
 	script = 0;
@@ -50,7 +55,7 @@ bool engine_t::run()
 	platform->start_audio();
 
 	if (!scene->open_scene(gameinfo()->get_initial_set_id(),
-		                   gameinfo()->get_initial_scene_id()));
+		                   gameinfo()->get_initial_scene_id()))
 		return false;
 
 	for (;;)
@@ -65,15 +70,17 @@ void engine_t::process_game()
 
 	uint32_t cur_time = 60 * get_time();
 
+	_ambient_sounds->tick();
+
 	if (next_frame_time <= cur_time)
 	{
-		if (!scene->advance_frame(frame))
+		int frame_no = scene->advance_frame(frame);
+		if (frame_no < 0)
 			return;
 
-		aud_speech_player->output_frame();
+		script_scene_frame_advanced(frame_no);
 
 		render_frame(frame);
-		platform->output_audio_frame();
 
 		if (!next_frame_time)
 			next_frame_time = cur_time;
@@ -117,6 +124,14 @@ void engine_t::script_initialize_scene()
 	enter_script();
 	if (script)
 		script->initialize_scene();
+	leave_script();
+}
+
+void engine_t::script_scene_frame_advanced(int frame_no)
+{
+	enter_script();
+	if (script)
+		script->scene_frame_advanced(frame_no);
 	leave_script();
 }
 
@@ -199,14 +214,14 @@ void engine_t::outtake_play(int id, int no_localization, int a3)
 		if (next_frame_time <= cur_time)
 		{
 			b = vqa_decoder.read_frame();
-			if (!b)
+			if (b < 0)
 				break;
 
 			int16_t *audio_frame = vqa_decoder.get_audio_frame();
 			if (audio_frame)
 			{
-				platform->mix_in_audio_frame(audio_frame, 100);
-				platform->output_audio_frame();
+				// platform->mix_in_audio_frame(audio_frame, 100);
+				// platform->output_audio_frame();
 			}
 
 			b = vqa_decoder.decode_frame(frame);
@@ -223,20 +238,16 @@ void engine_t::outtake_play(int id, int no_localization, int a3)
 
 	float fps = 1000.0 * frame_count / (end_time - start_time);
 	printf("FPS: %d/%d = %f\n", frame_count, end_time - start_time, fps);
+}
 
+void engine_t::sound_play(int id, int volume, int a3, int a4, int a5)
+{
+	const char *name = _gameinfo->get_sfx_track_name(id);
+	_aud_player->play_aud(name, volume, 0);
 }
 
 void engine_t::actor_voice_over(int sentence_id, int actor_id)
 {
-	reader_t *r = resource_manager.get_speech_resource(actor_id, sentence_id);
-	if (!r) return;
-
-	aud_speech_player->play_aud(r);
-
-	while (!aud_speech_player->is_done())
-	{
-		process_game();
-	}
 }
 
 /*

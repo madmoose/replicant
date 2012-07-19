@@ -18,6 +18,8 @@ float hexfloat(unsigned int a);
 void draw_point(uint16_t *frame, int x, int y, uint16_t color);
 void draw_line(uint16_t *frame, int x0, int y0, int x1, int y1, uint16_t color);
 
+uint32_t rand_in_range(uint32_t min, uint32_t max);
+
 char *strupcase(char *s);
 bool strendswith(const char *s1, const char *s2);
 
